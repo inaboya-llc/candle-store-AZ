@@ -1,4 +1,4 @@
-name: Build and Trigger Deploy
+name: Build and Trigger Deploy (Azure)
 
 on:
   push:
@@ -6,9 +6,10 @@ on:
       - main
 
 env:
-  PROJECT_ID: "candle-store-501218"
-  REGION: "us-east4"
-  GAR_REPO: "candle-store-registry"
+  AZURE_CLIENT_ID: "352b4671-3617-4e74-a9ce-52f8757b3a3b"
+  AZURE_TENANT_ID: "ce9cc904-22b6-49ae-9158-62b6553f1d62"
+  AZURE_SUBSCRIPTION_ID: "60c91a22-3081-4d8f-98a0-cbb574a2a5d5"
+  ACR_NAME: "candleRegistry" # Name of your Azure Container Registry (e.g., myregistry)
   IMAGE_NAME: "candle-store-app"
 
 jobs:
@@ -16,37 +17,37 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Required for Workload Identity Federation
+      id-token: 'write' # Required for Azure OIDC login
 
     steps:
-    - name: Checkout Application Code
-      uses: actions/checkout@v4
+      - name: Checkout Application Code
+        uses: actions/checkout@v4
 
-    # Tokenless OIDC Login using your dedicated Application Service Account
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        workload_identity_provider: 'projects/993788111526/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-        service_account: 'gh-auto-sa@candle-store-501218.iam.gserviceaccount.com'
+      # Tokenless OIDC Login using Azure Service Principal
+      - name: Authenticate to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
+      # Logs into your Azure Container Registry using the authenticated Azure session
+      - name: Log in to Azure Container Registry
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
 
-    - name: Configure Docker for Artifact Registry
-      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      # Builds and pushes container using the unique Git Commit SHA as the version tag
+      - name: Build and Push Docker Container
+        run: |
+          IMAGE_URL="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker build -t $IMAGE_URL .
+          docker push $IMAGE_URL
 
-    # Builds and pushes container using the unique Git Commit SHA as the version tag
-    - name: Build and Push Docker Container
-      run: |
-        IMAGE_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-        docker build -t $IMAGE_URL .
-        docker push $IMAGE_URL
-
-    # THE HANDSHAKE: Signals your candle-store-TF repo that a new image is ready
-    - name: Trigger Infrastructure Pipeline
-      uses: peter-evans/repository-dispatch@v3
-      with:
-        token: ${{ secrets.INFRA_REPO_ACCESS_TOKEN }} # Fine-grained GitHub PAT
-        repository: samuelinaboya/candle-store-TF
-        event-type: deploy-triggered-by-app
-        client-payload: '{"image_tag": "${{ github.sha }}"}'
+      # THE HANDSHAKE: Signals your candle-store-TF repo that a new Azure image is ready
+      - name: Trigger Infrastructure Pipeline
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.INFRA_REPO_ACCESS_TOKEN }}
+          repository: samuelinaboya/candle-store-AZ-TF
+          event-type: deploy-triggered-by-app
+          client-payload: '{"image_tag": "${{ github.sha }}"}'
