@@ -48,6 +48,6 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.INFRA_REPO_ACCESS_TOKEN }}
-          repository: samuelinaboya/candle-store-AZ-TF
+          repository: inaboya-llc/candle-store-AZ_TF
           event-type: deploy-triggered-by-app
           client-payload: '{"image_tag": "${{ github.sha }}"}'
