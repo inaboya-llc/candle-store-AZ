@@ -9,7 +9,7 @@ env:
   AZURE_CLIENT_ID: "352b4671-3617-4e74-a9ce-52f8757b3a3b"
   AZURE_TENANT_ID: "ce9cc904-22b6-49ae-9158-62b6553f1d62"
   AZURE_SUBSCRIPTION_ID: "60c91a22-3081-4d8f-98a0-cbb574a2a5d5"
-  ACR_NAME: "candleRegistry" # Name of your Azure Container Registry (e.g., myregistry)
+  ACR_NAME: "candleregistry" # Name of your Azure Container Registry (e.g., myregistry)
   IMAGE_NAME: "candle-store-app"
 
 jobs:
